@@ -1,0 +1,40 @@
+{
+  "name": "minervav2",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DAOplomats/minervaV2.git"
+  },
+  "author": "Anoy Roy Chowdhury",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/DAOplomats/minervaV2/issues"
+  },
+  "homepage": "https://github.com/DAOplomats/minervaV2#readme",
+  "description": "",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@prisma/client": "^6.19.0",
+    "@safe-global/api-kit": "^4.0.0",
+    "@safe-global/protocol-kit": "^6.1.1",
+    "@safe-global/sdk-starter-kit": "^3.0.1",
+    "@safe-global/types-kit": "^3.0.0",
+    "@snapshot-labs/snapshot.js": "^0.14.15",
+    "axios": "^1.13.2",
+    "bull": "^4.16.5",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "ethers": "^5.7.2",
+    "express": "^5.1.0",
+    "ioredis": "^5.8.2",
+    "nodemon": "^3.1.11",
+    "openai": "^6.9.0",
+    "throng": "^5.0.0",
+    "winston": "^3.18.3",
+    "zod": "^4.1.12"
+  }
+}

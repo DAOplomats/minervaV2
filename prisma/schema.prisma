@@ -1,0 +1,40 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model Chains {
+    id                  Int     @id @default(autoincrement())
+    name                String
+    rpcUrl              String
+    gasLimit            Int
+    isCandideEnabled    Boolean @default(false)
+    bundlerUrl          String?
+    paymasterUrl        String?
+    sponsorshipPolicyId String?
+
+    daos DAOs[]
+}
+
+model DAOs {
+    id          String        @id @default(cuid())
+    alternateId String
+    chainId     Int
+    chain       Chains        @relation(fields: [chainId], references: [id])
+    platform    String
+    latestIndex String?
+    deployments Deployments[]
+}
+
+model Deployments {
+    id      String @id @default(cuid())
+    address String
+    name    String
+    abi     Json
+    daoId   String
+    dao     DAOs   @relation(fields: [daoId], references: [id])
+}
