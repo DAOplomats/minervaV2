@@ -21,13 +21,17 @@ model Chains {
 }
 
 model DAOs {
-    id          String        @id @default(cuid())
+    id          String  @id @default(cuid())
+    daoId       String?
     alternateId String
     chainId     Int
-    chain       Chains        @relation(fields: [chainId], references: [id])
+    chain       Chains  @relation(fields: [chainId], references: [id])
     platform    String
     latestIndex String?
+    votingDelay Int?
+
     deployments Deployments[]
+    proposals   Proposals[]
 }
 
 model Deployments {
@@ -37,4 +41,31 @@ model Deployments {
     abi     Json
     daoId   String
     dao     DAOs   @relation(fields: [daoId], references: [id])
+}
+
+model Proposals {
+    id        String   @id @default(cuid())
+    daoId     String
+    dao       DAOs     @relation(fields: [daoId], references: [id])
+    title     String
+    summary   String
+    choices   String[]
+    startDate DateTime
+
+    decisions Decision[]
+}
+
+enum Status {
+    PENDING
+    DECIDED
+    FAILED
+}
+
+model Decision {
+    id         String    @id @default(cuid())
+    proposalId String
+    proposal   Proposals @relation(fields: [proposalId], references: [id])
+    vote       Int?
+    reason     String?
+    status     Status
 }

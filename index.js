@@ -4,6 +4,7 @@ import cors from "cors";
 import daoRouter from "./routes/dao.js";
 import chainRouter from "./routes/chain.js";
 import utilsRouter from "./routes/utils.js";
+import proposalRouter from "./routes/proposal.js";
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ app.get("/", (req, res) => {
 app.use("/api/dao", daoRouter);
 app.use("/api/chain", chainRouter);
 app.use("/api/utils", utilsRouter);
+app.use("/api/proposal", proposalRouter);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

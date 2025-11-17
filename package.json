@@ -30,11 +30,13 @@
     "dotenv": "^17.2.3",
     "ethers": "^5.7.2",
     "express": "^5.1.0",
+    "fs": "^0.0.1-security",
     "ioredis": "^5.8.2",
     "nodemon": "^3.1.11",
     "openai": "^6.9.0",
     "throng": "^5.0.0",
     "winston": "^3.18.3",
     "zod": "^4.1.12"
-  }
+  },
+  "type": "module"
 }
