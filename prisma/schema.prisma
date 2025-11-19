@@ -51,6 +51,7 @@ model Proposals {
     summary   String
     choices   String[]
     startDate DateTime
+    endDate   DateTime
 
     decisions Decision[]
 }
@@ -68,4 +69,20 @@ model Decision {
     vote       Int?
     reason     String?
     status     Status
+
+    executions Execution[]
+}
+
+enum ExecutionStatus {
+    SUCCESS
+    PENDING
+    FAILED
+}
+
+model Execution {
+    id         String          @id @default(cuid())
+    decisionId String
+    decision   Decision        @relation(fields: [decisionId], references: [id])
+    status     ExecutionStatus
+    metadata   Json
 }

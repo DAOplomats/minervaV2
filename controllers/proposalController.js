@@ -1,6 +1,7 @@
 import prisma from "../utils/prisma.js";
 import { processTallyDecision } from "../utils/tally.js";
 import logger from "../utils/winston.js";
+import { indexTallyProposal } from "../utils/tally.js";
 
 const redecideProposal = async (req, res) => {
   try {
@@ -23,7 +24,12 @@ const redecideProposal = async (req, res) => {
     }
 
     if (proposal.dao.platform === "tally") {
-      await processTallyDecision(proposal.dao, proposal.decisions[0], proposal);
+      await processTallyDecision(
+        proposal.dao,
+        proposal.decisions[0],
+        proposal,
+        true
+      );
     } else {
       return res.json({
         success: false,
@@ -44,4 +50,31 @@ const redecideProposal = async (req, res) => {
   }
 };
 
-export { redecideProposal };
+const indexProposal = async (req, res) => {
+  try {
+    const { daoId, proposalId } = req.params;
+
+    const dao = await prisma.dAOs.findMany({
+      where: {
+        daoId: daoId,
+      },
+    });
+
+    if (dao[0].platform === "tally") {
+      await indexTallyProposal(dao[0], proposalId);
+    }
+
+    return res.json({
+      success: true,
+      message: "Proposal indexed successfully",
+    });
+  } catch (error) {
+    logger.error(error);
+    return res.json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export { redecideProposal, indexProposal };

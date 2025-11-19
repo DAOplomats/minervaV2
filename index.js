@@ -5,6 +5,7 @@ import daoRouter from "./routes/dao.js";
 import chainRouter from "./routes/chain.js";
 import utilsRouter from "./routes/utils.js";
 import proposalRouter from "./routes/proposal.js";
+import redis from "./utils/redis.js";
 
 dotenv.config();
 
@@ -21,6 +22,15 @@ app.use("/api/dao", daoRouter);
 app.use("/api/chain", chainRouter);
 app.use("/api/utils", utilsRouter);
 app.use("/api/proposal", proposalRouter);
+
+// Redis connection
+redis.on("connect", async () => {
+  console.log("Successfully connected to Redis");
+});
+
+redis.on("error", (err) => {
+  console.error("Redis connection error:", err);
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
