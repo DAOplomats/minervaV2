@@ -29,6 +29,7 @@ model DAOs {
     platform    String
     latestIndex String?
     votingDelay Int?
+    address     String?
 
     deployments Deployments[]
     proposals   Proposals[]
@@ -53,7 +54,8 @@ model Proposals {
     startDate DateTime
     endDate   DateTime
 
-    decisions Decision[]
+    decisions  Decision[]
+    executions Execution[]
 }
 
 enum Status {
@@ -69,8 +71,6 @@ model Decision {
     vote       Int?
     reason     String?
     status     Status
-
-    executions Execution[]
 }
 
 enum ExecutionStatus {
@@ -81,8 +81,8 @@ enum ExecutionStatus {
 
 model Execution {
     id         String          @id @default(cuid())
-    decisionId String
-    decision   Decision        @relation(fields: [decisionId], references: [id])
+    proposalId String
+    proposal   Proposals       @relation(fields: [proposalId], references: [id])
     status     ExecutionStatus
     metadata   Json
 }

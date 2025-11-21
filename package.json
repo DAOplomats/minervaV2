@@ -24,6 +24,7 @@
     "@safe-global/sdk-starter-kit": "^3.0.1",
     "@safe-global/types-kit": "^3.0.0",
     "@snapshot-labs/snapshot.js": "^0.14.15",
+    "abstractionkit": "^0.2.30",
     "axios": "^1.13.2",
     "bull": "^4.16.5",
     "cors": "^2.8.5",

@@ -3,8 +3,15 @@ import logger from "../utils/winston.js";
 
 const addDao = async (req, res) => {
   try {
-    const { id, alternateId, chainId, platform, latestIndex, deployments } =
-      req.body;
+    const {
+      id,
+      alternateId,
+      chainId,
+      platform,
+      address,
+      latestIndex,
+      deployments,
+    } = req.body;
 
     const dao = await prisma.dAOs.create({
       data: {
@@ -12,6 +19,7 @@ const addDao = async (req, res) => {
         alternateId,
         chainId,
         platform,
+        address,
         latestIndex,
       },
     });

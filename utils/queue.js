@@ -74,4 +74,92 @@ executionQueue.process(async (job) => {
   }
 });
 
-export { decisionQueue, executionQueue };
+const loadPendingExecutionJobs = async () => {
+  try {
+    let totalJobs = 0;
+
+    const proposals = await prisma.proposals.findMany({
+      where: {
+        endDate: {
+          gte: new Date().toISOString(),
+        },
+      },
+      include: {
+        decisions: {
+          where: {
+            status: "DECIDED",
+          },
+        },
+        executions: true,
+        dao: true,
+      },
+    });
+
+    proposals.forEach((proposal) => {
+      const decision = proposal.decisions[0];
+      const execution = proposal.executions[0];
+
+      if (execution?.status === "SUCCESS") {
+        return;
+      }
+
+      if (proposal.id === "499") {
+        executionQueue.add(
+          {
+            proposalId: proposal.id,
+          },
+          {
+            delay: 0,
+          }
+        );
+
+        logger.info(`Scheduled execution for proposal ${proposal.id}`);
+
+        return;
+      }
+
+      totalJobs++;
+
+      const delay =
+        new Date(proposal.endDate).getTime() -
+        proposal.dao.votingDelay -
+        Date.now();
+
+      if (delay > 0) {
+        executionQueue.add(
+          {
+            proposalId: proposal.id,
+          },
+          {
+            delay: delay,
+          }
+        );
+
+        logger.info(
+          `Scheduled execution for proposal ${proposal.id} in ${
+            delay / (1000 * 60 * 60 * 24)
+          } days`
+        );
+      } else if (new Date(proposal.endDate).getTime() - Date.now() > 0) {
+        executionQueue.add(
+          {
+            proposalId: proposal.id,
+          },
+          {
+            jobId: decision.id,
+          }
+        );
+
+        logger.info(`Scheduled execution for proposal ${proposal.id}`);
+      } else {
+        logger.info("Proposal has already ended");
+      }
+    });
+
+    logger.info(`Loaded ${totalJobs} pending execution jobs`);
+  } catch (error) {
+    logger.error("Error loading pending execution jobs", error);
+  }
+};
+
+export { decisionQueue, executionQueue, loadPendingExecutionJobs };

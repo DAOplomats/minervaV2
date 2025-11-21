@@ -3,7 +3,21 @@ import logger from "./winston.js";
 import prisma from "./prisma.js";
 import { decideProposal, summarizeProposal } from "./ai.js";
 import { decisionQueue, executionQueue } from "./queue.js";
-import { schedule } from "node-cron";
+import SafeApiKit from "@safe-global/api-kit";
+import Safe from "@safe-global/protocol-kit";
+import { OperationType } from "@safe-global/types-kit";
+import {
+  Simple7702Account,
+  createAndSignEip7702DelegationAuthorization,
+  CandidePaymaster,
+} from "abstractionkit";
+import { ethers } from "ethers";
+import {
+  createSafeClient,
+  offChainMessages,
+} from "@safe-global/sdk-starter-kit";
+import dotenv from "dotenv";
+dotenv.config();
 
 const checkTallyProposal = async (dao) => {
   try {
@@ -173,7 +187,378 @@ export const processTallyDecision = async (
 
 export const executeTallyProposal = async (dao, proposalId) => {
   try {
-  } catch (error) {}
+    logger.info(`Executing Tally vote for proposal: ${proposalId}`);
+    let execution;
+
+    execution = await prisma.execution.findMany({
+      where: {
+        proposalId: proposalId,
+      },
+    });
+
+    if (execution.length === 0) {
+      execution = await prisma.execution.create({
+        data: {
+          proposalId: proposalId,
+          status: "PENDING",
+          metadata: {},
+        },
+      });
+    }
+
+    const daoWithDeployments = await prisma.dAOs.findUnique({
+      where: {
+        id: dao.id,
+      },
+      include: {
+        deployments: true,
+        chain: true,
+      },
+    });
+
+    const governorAddress = daoWithDeployments.deployments.find(
+      (deployment) => deployment.name === "governor"
+    ).address;
+
+    const proposal = await prisma.proposals.findUnique({
+      where: {
+        id: proposalId,
+      },
+      include: {
+        decisions: true,
+      },
+    });
+
+    const onchainId = proposal.decisions[0].proposalId;
+    const choice = proposal.decisions[0].vote;
+    const reason = proposal.decisions[0].reason;
+
+    const chain = daoWithDeployments.chain;
+
+    logger.info(
+      `Governor Address: ${governorAddress}, Onchain ID: ${onchainId}`
+    );
+
+    // Convert choice to the format expected by Tally (0-indexed)
+    const tallyChoice = Number(choice) === 1 ? 1 : Number(choice) === 2 ? 0 : 2;
+    logger.info(
+      `Original choice: ${choice}, Tally-formatted choice: ${tallyChoice}`
+    );
+
+    // ABI for castVoteWithReason
+    const abi = [
+      "function castVoteWithReason(uint256 proposalId, uint8 support, string reason)",
+    ];
+
+    // Create provider
+    const provider = new ethers.providers.JsonRpcProvider(chain.rpcUrl);
+
+    // Create contract instance
+    const contract = new ethers.Contract(governorAddress, abi, provider);
+
+    // Encode function data
+    const data = contract.interface.encodeFunctionData("castVoteWithReason", [
+      onchainId,
+      tallyChoice,
+      reason,
+    ]);
+
+    logger.debug(`Encoded transaction data for Tally vote: ${data}`);
+
+    const privateKey = process.env.PRIVATE_KEY;
+
+    if (!chain.isCandideEnabled) {
+      logger.info(
+        `Executing Tally vote via Safe: ${daoWithDeployments.address}`
+      );
+
+      const safeAddress = daoWithDeployments.address;
+
+      // Create Safe client
+      const safeClient = await createSafeClient({
+        provider: chain.rpcUrl,
+        signer: privateKey,
+        safeAddress: safeAddress,
+      });
+
+      logger.debug("Safe transaction data:", {
+        to: governorAddress,
+        data,
+        value: "0",
+      });
+
+      // Send transaction
+      const transaction = await safeClient.send({
+        transactions: [
+          {
+            to: governorAddress,
+            data,
+            value: "0",
+          },
+        ],
+      });
+
+      if (!transaction) {
+        throw new Error("Safe transaction failed or wasn't properly executed");
+      }
+
+      logger.info(
+        `Safe transaction for Tally vote sent. Hash: ${transaction.hash}`
+      );
+    }
+
+    if (chain.isCandideEnabled) {
+      logger.info(
+        `Executing Tally vote via Candide: ${daoWithDeployments.address}`
+      );
+
+      const eoaDelegator = new ethers.Wallet(privateKey);
+      const eoaDelegatorPublicAddress = eoaDelegator.address;
+      const eoaDelegatorPrivateKey = eoaDelegator.privateKey;
+
+      const apiKit = new SafeApiKit({
+        chainId: BigInt(chain.id),
+        apiKey: process.env.SAFE_API_KEY,
+      });
+
+      const protocolKitOwner1 = await Safe.init({
+        provider: chain.rpcUrl,
+        signer: eoaDelegatorPrivateKey,
+        safeAddress: daoWithDeployments.address,
+      });
+
+      const safeTransactionData = {
+        to: governorAddress,
+        value: "0",
+        data: data,
+        operation: OperationType.Call,
+      };
+
+      const safeTransaction = await protocolKitOwner1.createTransaction({
+        transactions: [safeTransactionData],
+      });
+
+      const safeTxHash = await protocolKitOwner1.getTransactionHash(
+        safeTransaction
+      );
+      const signature = await protocolKitOwner1.signHash(safeTxHash);
+
+      await apiKit.proposeTransaction({
+        safeAddress: daoWithDeployments.address,
+        safeTransactionData: safeTransaction.data,
+        safeTxHash,
+        senderAddress: eoaDelegatorPublicAddress,
+        senderSignature: signature.data,
+      });
+
+      logger.info("Transaction proposed successfully");
+
+      const pendingTransactions = await apiKit.getPendingTransactions(
+        daoWithDeployments.address
+      );
+
+      if (!pendingTransactions.results.length) {
+        throw new Error("No pending transactions found");
+      }
+
+      const latestTransaction = pendingTransactions.results[0];
+
+      const latestTransactionConfirmations =
+        await apiKit.getTransactionConfirmations(latestTransaction.safeTxHash);
+
+      const safeContract = new ethers.Contract(
+        "0x992c5653F0502FfcE6D6dd172B8835367A9dCCf4",
+        [
+          {
+            inputs: [
+              {
+                internalType: "address",
+                name: "to",
+                type: "address",
+              },
+              {
+                internalType: "uint256",
+                name: "value",
+                type: "uint256",
+              },
+              {
+                internalType: "bytes",
+                name: "data",
+                type: "bytes",
+              },
+              {
+                internalType: "enum Enum.Operation",
+                name: "operation",
+                type: "uint8",
+              },
+              {
+                internalType: "uint256",
+                name: "safeTxGas",
+                type: "uint256",
+              },
+              {
+                internalType: "uint256",
+                name: "baseGas",
+                type: "uint256",
+              },
+              {
+                internalType: "uint256",
+                name: "gasPrice",
+                type: "uint256",
+              },
+              {
+                internalType: "address",
+                name: "gasToken",
+                type: "address",
+              },
+              {
+                internalType: "address payable",
+                name: "refundReceiver",
+                type: "address",
+              },
+              {
+                internalType: "bytes",
+                name: "signatures",
+                type: "bytes",
+              },
+            ],
+            name: "execTransaction",
+            outputs: [
+              {
+                internalType: "bool",
+                name: "success",
+                type: "bool",
+              },
+            ],
+            stateMutability: "payable",
+            type: "function",
+          },
+        ]
+      );
+
+      const mainData = safeContract.interface.encodeFunctionData(
+        "execTransaction",
+        [
+          latestTransaction.to,
+          latestTransaction.value,
+          latestTransaction.data ? latestTransaction.data : "0x",
+          OperationType.Call,
+          0,
+          0,
+          0,
+          "0x0000000000000000000000000000000000000000",
+          "0x0000000000000000000000000000000000000000",
+          latestTransactionConfirmations.results[0].signature,
+        ]
+      );
+
+      const chainId = chain.id;
+      const bundlerUrl = chain.bundlerUrl;
+      const paymasterUrl = chain.paymasterUrl;
+      const sponsorshipPolicyId = chain.sponsorshipPolicyId;
+      const nodeUrl = chain.rpcUrl;
+
+      const transaction = {
+        to: daoWithDeployments.address,
+        value: 0,
+        data: mainData,
+      };
+
+      const smartAccount = new Simple7702Account(eoaDelegatorPublicAddress);
+
+      let userOperation = await smartAccount.createUserOperation(
+        [
+          //You can batch multiple transactions to be executed in one useroperation.
+          transaction,
+        ],
+        nodeUrl, //the node rpc is used to fetch the current nonce and fetch gas prices.
+        bundlerUrl, //the bundler rpc is used to estimate the gas limits.
+        {
+          eip7702Auth: {
+            chainId: chainId, // chainId at which the account will be upgraded
+          },
+        }
+      );
+
+      userOperation.eip7702Auth = createAndSignEip7702DelegationAuthorization(
+        BigInt(userOperation.eip7702Auth.chainId),
+        userOperation.eip7702Auth.address,
+        BigInt(userOperation.eip7702Auth.nonce),
+        eoaDelegatorPrivateKey
+      );
+
+      const paymaster = new CandidePaymaster(paymasterUrl);
+
+      let [paymasterUserOperation, _sponsorMetadata] =
+        await paymaster.createSponsorPaymasterUserOperation(
+          userOperation,
+          bundlerUrl,
+          sponsorshipPolicyId
+        ); // sponsorshipPolicyId will have no effect if empty
+      userOperation = paymasterUserOperation;
+
+      userOperation.signature = smartAccount.signUserOperation(
+        userOperation,
+        eoaDelegatorPrivateKey,
+        chainId
+      );
+
+      let sendUserOperationResponse = await smartAccount.sendUserOperation(
+        userOperation,
+        bundlerUrl
+      );
+
+      console.log("userOperation: ", userOperation);
+      logger.log("userOp sent! Waiting for inclusion...");
+      console.log("userOp Hash: ", sendUserOperationResponse.userOperationHash);
+
+      logger.log("userOp sent! Waiting for inclusion...");
+
+      await new Promise((resolve) => setTimeout(resolve, 30000));
+
+      let userOperationReceiptResult =
+        await sendUserOperationResponse.included();
+
+      console.log("Useroperation receipt received.");
+      console.log(userOperationReceiptResult);
+      if (userOperationReceiptResult.success) {
+        logger.info(
+          "The transaction hash is : " +
+            userOperationReceiptResult.receipt.transactionHash
+        );
+
+        await prisma.execution.update({
+          where: {
+            id: execution.id,
+          },
+          data: {
+            status: "SUCCESS",
+          },
+        });
+      } else {
+        throw new Error("Useroperation execution failed");
+      }
+    }
+  } catch (error) {
+    const execution = await prisma.execution.findMany({
+      where: {
+        proposalId: proposalId,
+      },
+    });
+
+    await prisma.execution.update({
+      where: {
+        id: execution[0].id,
+      },
+      data: {
+        status: "FAILED",
+        metadata: {
+          error: error.message,
+        },
+      },
+    });
+    logger.error(error);
+  }
 };
 
 export const indexTallyProposal = async (dao, proposalId) => {
