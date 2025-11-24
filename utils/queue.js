@@ -2,6 +2,7 @@ import Queue from "bull";
 import prisma from "./prisma.js";
 import { processTallyDecision, executeTallyProposal } from "./tally.js";
 import logger from "./winston.js";
+import checkNewProposals from "./listener.js";
 
 const decisionQueue = new Queue("minervaV2:decisionQueue", {
   redis: {
@@ -11,6 +12,13 @@ const decisionQueue = new Queue("minervaV2:decisionQueue", {
 });
 
 const executionQueue = new Queue("minervaV2:executionQueue", {
+  redis: {
+    host: process.env.REDIS_HOST || "localhost",
+    port: process.env.REDIS_PORT || 6379,
+  },
+});
+
+const listenerQueue = new Queue("minervaV2:listenerQueue", {
   redis: {
     host: process.env.REDIS_HOST || "localhost",
     port: process.env.REDIS_PORT || 6379,
@@ -74,8 +82,20 @@ executionQueue.process(async (job) => {
   }
 });
 
+listenerQueue.process(async (job) => {
+  try {
+    checkNewProposals();
+
+    listenerQueue.add({}, { delay: 60 * 60 * 1000 });
+  } catch (error) {
+    logger.error(error);
+  }
+});
+
 const loadPendingExecutionJobs = async () => {
   try {
+    await executionQueue.obliterate();
+
     let totalJobs = 0;
 
     const proposals = await prisma.proposals.findMany({
@@ -100,21 +120,6 @@ const loadPendingExecutionJobs = async () => {
       const execution = proposal.executions[0];
 
       if (execution?.status === "SUCCESS") {
-        return;
-      }
-
-      if (proposal.id === "499") {
-        executionQueue.add(
-          {
-            proposalId: proposal.id,
-          },
-          {
-            delay: 0,
-          }
-        );
-
-        logger.info(`Scheduled execution for proposal ${proposal.id}`);
-
         return;
       }
 
@@ -162,4 +167,9 @@ const loadPendingExecutionJobs = async () => {
   }
 };
 
-export { decisionQueue, executionQueue, loadPendingExecutionJobs };
+export {
+  decisionQueue,
+  executionQueue,
+  loadPendingExecutionJobs,
+  listenerQueue,
+};

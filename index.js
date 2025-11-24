@@ -7,6 +7,7 @@ import utilsRouter from "./routes/utils.js";
 import proposalRouter from "./routes/proposal.js";
 import redis from "./utils/redis.js";
 import { loadPendingExecutionJobs } from "./utils/queue.js";
+import { startListener } from "./utils/listener.js";
 
 dotenv.config();
 
@@ -28,6 +29,7 @@ app.use("/api/proposal", proposalRouter);
 redis.on("connect", async () => {
   console.log("Successfully connected to Redis");
 
+  startListener();
   loadPendingExecutionJobs();
 });
 

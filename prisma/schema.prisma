@@ -13,6 +13,7 @@ model Chains {
     rpcUrl              String
     gasLimit            Int
     isCandideEnabled    Boolean @default(false)
+    fallback            Boolean @default(false)
     bundlerUrl          String?
     paymasterUrl        String?
     sponsorshipPolicyId String?

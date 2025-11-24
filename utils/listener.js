@@ -1,6 +1,7 @@
 import prisma from "./prisma.js";
 import logger from "./winston.js";
 import checkTallyProposal from "./tally.js";
+import { listenerQueue } from "./queue.js";
 
 const checkNewProposals = async () => {
   try {
@@ -21,6 +22,10 @@ const checkNewProposals = async () => {
   } catch (error) {
     logger.error(error);
   }
+};
+
+export const startListener = async () => {
+  listenerQueue.add({});
 };
 
 export default checkNewProposals;

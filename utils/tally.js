@@ -190,13 +190,15 @@ export const executeTallyProposal = async (dao, proposalId) => {
     logger.info(`Executing Tally vote for proposal: ${proposalId}`);
     let execution;
 
-    execution = await prisma.execution.findMany({
+    const allExecutions = await prisma.execution.findMany({
       where: {
         proposalId: proposalId,
       },
     });
 
-    if (execution.length === 0) {
+    execution = allExecutions[0];
+
+    if (!execution) {
       execution = await prisma.execution.create({
         data: {
           proposalId: proposalId,
@@ -267,7 +269,7 @@ export const executeTallyProposal = async (dao, proposalId) => {
 
     const privateKey = process.env.PRIVATE_KEY;
 
-    if (!chain.isCandideEnabled) {
+    if (!chain.isCandideEnabled || chain.fallback) {
       logger.info(
         `Executing Tally vote via Safe: ${daoWithDeployments.address}`
       );
@@ -279,6 +281,7 @@ export const executeTallyProposal = async (dao, proposalId) => {
         provider: chain.rpcUrl,
         signer: privateKey,
         safeAddress: safeAddress,
+        apiKey: process.env.SAFE_API_KEY,
       });
 
       logger.debug("Safe transaction data:", {
@@ -302,12 +305,21 @@ export const executeTallyProposal = async (dao, proposalId) => {
         throw new Error("Safe transaction failed or wasn't properly executed");
       }
 
+      await prisma.execution.update({
+        where: {
+          id: execution.id,
+        },
+        data: {
+          status: "SUCCESS",
+        },
+      });
+
       logger.info(
-        `Safe transaction for Tally vote sent. Hash: ${transaction.hash}`
+        `Safe transaction for Tally vote sent. Hash: ${transaction.transactions?.safeTxHash}`
       );
     }
 
-    if (chain.isCandideEnabled) {
+    if (chain.isCandideEnabled && !chain.fallback) {
       logger.info(
         `Executing Tally vote via Candide: ${daoWithDeployments.address}`
       );
