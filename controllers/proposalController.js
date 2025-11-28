@@ -100,4 +100,32 @@ const listProposals = async (req, res) => {
   }
 };
 
-export { redecideProposal, indexProposal, listProposals };
+const getProposal = async (req, res) => {
+  try {
+    const { proposalId } = req.params;
+    const proposal = await prisma.proposals.findUnique({
+      where: {
+        id: proposalId,
+      },
+      include: {
+        dao: true,
+        decisions: true,
+        executions: true,
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: "Proposal fetched successfully",
+      proposal,
+    });
+  } catch (error) {
+    logger.error(error);
+    return res.json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export { redecideProposal, indexProposal, listProposals, getProposal };
