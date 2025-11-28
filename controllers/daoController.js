@@ -51,4 +51,34 @@ const addDao = async (req, res) => {
   }
 };
 
-export { addDao };
+const listDaos = async (req, res) => {
+  try {
+    const daos = await prisma.dAOs.findMany({
+      select: {
+        id: true,
+        daoId: true,
+        alternateId: true,
+        chainId: true,
+        platform: true,
+        address: true,
+      },
+      include: {
+        chain: true,
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: "Daos fetched successfully",
+      daos,
+    });
+  } catch (error) {
+    logger.error(error);
+    return res.json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+export { addDao, listDaos };

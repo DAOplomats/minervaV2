@@ -77,4 +77,27 @@ const indexProposal = async (req, res) => {
   }
 };
 
-export { redecideProposal, indexProposal };
+const listProposals = async (req, res) => {
+  try {
+    const proposals = await prisma.proposals.findMany({
+      take: 20,
+      orderBy: {
+        startDate: "desc",
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: "Proposals fetched successfully",
+      proposals,
+    });
+  } catch (error) {
+    logger.error(error);
+    return res.json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export { redecideProposal, indexProposal, listProposals };

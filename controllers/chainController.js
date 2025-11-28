@@ -34,4 +34,31 @@ const addChain = async (req, res) => {
   }
 };
 
-export { addChain };
+const listChains = async (req, res) => {
+  try {
+    const chains = await prisma.chains.findMany({
+      select: {
+        id: true,
+        name: true,
+        rpcUrl: true,
+        gasLimit: true,
+        isCandideEnabled: true,
+        fallback: true,
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: "Chains fetched successfully",
+      chains,
+    });
+  } catch (error) {
+    logger.error(error);
+    return res.json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+export { addChain, listChains };

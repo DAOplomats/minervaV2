@@ -64,7 +64,13 @@ const checkTallyProposal = async (dao) => {
     const startTimestamp = lastProposal.start.timestamp;
     const endTimestamp = lastProposal.end.timestamp;
 
-    if (lastProposal.onchainId === dao.latestIndex) {
+    const isProposalIndexed = await prisma.proposals.findUnique({
+      where: {
+        id: lastProposal.onchainId,
+      },
+    });
+
+    if (isProposalIndexed) {
       return;
     }
 
