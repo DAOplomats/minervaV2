@@ -84,6 +84,11 @@ const listProposals = async (req, res) => {
       orderBy: {
         startDate: "desc",
       },
+      include: {
+        dao: true,
+        decisions: true,
+        executions: true,
+      },
     });
 
     return res.json({
