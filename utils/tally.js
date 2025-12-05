@@ -631,6 +631,8 @@ export const indexTallyProposal = async (dao, proposalId) => {
       throw new Error("Proposal already ended");
     }
 
+    console.log(proposal);
+
     const newProposal = await prisma.proposals.create({
       data: {
         id: proposal.onchainId,

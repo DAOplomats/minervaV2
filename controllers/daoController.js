@@ -54,14 +54,6 @@ const addDao = async (req, res) => {
 const listDaos = async (req, res) => {
   try {
     const daos = await prisma.dAOs.findMany({
-      select: {
-        id: true,
-        daoId: true,
-        alternateId: true,
-        chainId: true,
-        platform: true,
-        address: true,
-      },
       include: {
         chain: true,
       },
