@@ -15,7 +15,7 @@ const addDao = async (req, res) => {
 
     const dao = await prisma.dAOs.create({
       data: {
-        id,
+        daoId: id,
         alternateId,
         chainId,
         platform,
@@ -31,7 +31,7 @@ const addDao = async (req, res) => {
             address: deployment.address,
             name: deployment.name,
             abi: deployment.abi,
-            daoId: id,
+            daoId: dao.id,
           },
         });
       })

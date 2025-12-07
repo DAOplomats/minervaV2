@@ -3,6 +3,10 @@ import prisma from "./prisma.js";
 import { processTallyDecision, executeTallyProposal } from "./tally.js";
 import logger from "./winston.js";
 import checkNewProposals from "./listener.js";
+import {
+  executeSnapshotProposal,
+  processSnapshotDecision,
+} from "./snapshot.js";
 
 const decisionQueue = new Queue("minervaV2:decisionQueue", {
   redis: {
@@ -53,6 +57,10 @@ decisionQueue.process(async (job) => {
     if (dao.platform === "tally") {
       await processTallyDecision(dao, decision, proposal);
     }
+
+    if (dao.platform === "snapshot") {
+      await processSnapshotDecision(dao, decision, proposal);
+    }
   } catch (error) {
     logger.error(error);
   }
@@ -76,6 +84,10 @@ executionQueue.process(async (job) => {
 
     if (dao.platform === "tally") {
       await executeTallyProposal(dao, proposalId);
+    }
+
+    if (dao.platform === "snapshot") {
+      await executeSnapshotProposal(dao, proposalId);
     }
   } catch (error) {
     logger.error(error);

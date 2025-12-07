@@ -2,6 +2,10 @@ import prisma from "../utils/prisma.js";
 import { processTallyDecision } from "../utils/tally.js";
 import logger from "../utils/winston.js";
 import { indexTallyProposal } from "../utils/tally.js";
+import {
+  indexSnapshotProposal,
+  processSnapshotDecision,
+} from "../utils/snapshot.js";
 
 const redecideProposal = async (req, res) => {
   try {
@@ -25,6 +29,13 @@ const redecideProposal = async (req, res) => {
 
     if (proposal.dao.platform === "tally") {
       await processTallyDecision(
+        proposal.dao,
+        proposal.decisions[0],
+        proposal,
+        true
+      );
+    } else if (proposal.dao.platform === "snapshot") {
+      await processSnapshotDecision(
         proposal.dao,
         proposal.decisions[0],
         proposal,
@@ -62,6 +73,10 @@ const indexProposal = async (req, res) => {
 
     if (dao[0].platform === "tally") {
       await indexTallyProposal(dao[0], proposalId);
+    }
+
+    if (dao[0].platform === "snapshot") {
+      await indexSnapshotProposal(dao[0], proposalId);
     }
 
     return res.json({

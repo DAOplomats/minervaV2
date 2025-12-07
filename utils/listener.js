@@ -2,6 +2,7 @@ import prisma from "./prisma.js";
 import logger from "./winston.js";
 import checkTallyProposal from "./tally.js";
 import { listenerQueue } from "./queue.js";
+import { checkSnapshotProposal } from "./snapshot.js";
 
 const checkNewProposals = async () => {
   try {
@@ -16,6 +17,9 @@ const checkNewProposals = async () => {
       daos.map(async (dao) => {
         if (dao.platform === "tally") {
           await checkTallyProposal(dao);
+        }
+        if (dao.platform === "snapshot") {
+          await checkSnapshotProposal(dao);
         }
       })
     );
