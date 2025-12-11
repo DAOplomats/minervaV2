@@ -104,9 +104,11 @@ listenerQueue.process(async (job) => {
   }
 });
 
-const loadPendingExecutionJobs = async () => {
+const loadPendingExecutionJobs = async (firstRun = false) => {
   try {
-    await executionQueue.obliterate();
+    if (!firstRun) {
+      await executionQueue.obliterate();
+    }
 
     let totalJobs = 0;
 
@@ -158,14 +160,9 @@ const loadPendingExecutionJobs = async () => {
           } days`
         );
       } else if (new Date(proposal.endDate).getTime() - Date.now() > 0) {
-        executionQueue.add(
-          {
-            proposalId: proposal.id,
-          },
-          {
-            jobId: decision.id,
-          }
-        );
+        executionQueue.add({
+          proposalId: proposal.id,
+        });
 
         logger.info(`Scheduled execution for proposal ${proposal.id}`);
       } else {

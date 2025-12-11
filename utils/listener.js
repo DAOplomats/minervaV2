@@ -28,8 +28,15 @@ const checkNewProposals = async () => {
   }
 };
 
-export const startListener = async () => {
-  listenerQueue.add({});
+export const startListener = async (id = "defaultId") => {
+  await listenerQueue.add(
+    {},
+    {
+      jobId: "defaultId",
+      removeOnComplete: true,
+      removeOnFail: true,
+    }
+  );
 };
 
 export default checkNewProposals;

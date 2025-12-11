@@ -17,7 +17,6 @@
   "homepage": "https://github.com/DAOplomats/minervaV2#readme",
   "description": "",
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^6.19.0",
     "@safe-global/api-kit": "^4.0.0",
     "@safe-global/protocol-kit": "^6.1.1",
@@ -35,7 +34,7 @@
     "ioredis": "^5.8.2",
     "node-cron": "^4.2.1",
     "nodemon": "^3.1.11",
-    "openai": "^6.9.0",
+    "openai": "^6.10.0",
     "prisma": "^7.0.0",
     "throng": "^5.0.0",
     "winston": "^3.18.3",

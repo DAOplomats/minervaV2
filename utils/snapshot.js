@@ -3,6 +3,10 @@ import prisma from "./prisma.js";
 import axios from "axios";
 import { decideProposal, summarizeProposal } from "./ai.js";
 import { decisionQueue, executionQueue } from "./queue.js";
+import {
+  createSafeClient,
+  offChainMessages,
+} from "@safe-global/sdk-starter-kit";
 
 const checkSnapshotProposal = async (dao) => {
   try {
@@ -48,8 +52,12 @@ const checkSnapshotProposal = async (dao) => {
 
     const lastProposal = response.data.data.proposals[0];
 
-    const startTimestamp = lastProposal.start;
-    const endTimestamp = lastProposal.end;
+    const startTimestamp = new Date(
+      Number(lastProposal.start) * 1000
+    ).toISOString();
+    const endTimestamp = new Date(
+      Number(lastProposal.end) * 1000
+    ).toISOString();
 
     const isProposalIndexed = await prisma.proposals.findUnique({
       where: {
@@ -253,6 +261,7 @@ const executeSnapshotProposal = async (dao, proposalId) => {
       provider: daoWithDeployments.chain.rpcUrl,
       signer: privateKey,
       safeAddress: safeAddress,
+      apiKey: process.env.SAFE_API_KEY,
     });
 
     const offchainMessageClient = safeClient.extend(offChainMessages());
@@ -427,7 +436,7 @@ const indexSnapshotProposal = async (dao, proposalId) => {
 
     const summary = await summarizeProposal(proposal.body);
 
-    if (Date.now() > proposal.end) {
+    if (Date.now() > proposal.end * 1000) {
       throw new Error("Proposal already ended");
     }
 
@@ -438,8 +447,8 @@ const indexSnapshotProposal = async (dao, proposalId) => {
         title: proposal.title,
         summary: summary,
         choices: proposal.choices,
-        startDate: proposal.start,
-        endDate: proposal.end,
+        startDate: new Date(Number(proposal.start) * 1000).toISOString(),
+        endDate: new Date(Number(proposal.end) * 1000).toISOString(),
       },
     });
 

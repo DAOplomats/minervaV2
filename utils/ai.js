@@ -1,47 +1,42 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 import fs from "fs";
 
-const apiKey = process.env.GEMINI_API_KEY;
-const genAI = new GoogleGenerativeAI(apiKey);
+// Initialize OpenRouter client
+const openai = new OpenAI({
+  apiKey: process.env.OPENROUTER_API_KEY,
+  baseURL: "https://openrouter.ai/api/v1",
+});
 
 const summarizeProposal = async (proposal) => {
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash",
-  });
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "google/gemini-2.0-flash-001",
+      messages: [
+        {
+          role: "system",
+          content: "You summarize a proposal.",
+        },
+        {
+          role: "user",
+          content: `Summarize the following proposal: ${proposal}`,
+        },
+      ],
+      temperature: 1,
+      top_p: 0.95,
+      max_tokens: 8192,
+    });
 
-  const generationConfig = {
-    temperature: 1,
-    topP: 0.95,
-    topK: 40,
-    maxOutputTokens: 8192,
-    responseMimeType: "text/plain",
-  };
+    const summary = completion.choices[0].message.content;
 
-  const chatSession = model.startChat({
-    generationConfig,
-    history: [
-      {
-        role: "user",
-        parts: [
-          {
-            text: `You summarize a proposal.`,
-          },
-        ],
-      },
-    ],
-  });
+    if (!summary) {
+      throw new Error("Failed to summarize proposal");
+    }
 
-  const prompt = `Summarize the following proposal: ${proposal}`;
-
-  const result = await chatSession.sendMessage(prompt);
-
-  const summary = result.response.text();
-
-  if (!summary) {
-    throw new Error("Failed to summarize proposal");
+    return summary;
+  } catch (error) {
+    console.error("Error in summarizeProposal:", error);
+    throw error;
   }
-
-  return summary;
 };
 
 const SYSTEM_PROMPT = `
@@ -62,52 +57,18 @@ You are a helpful assistant that can help with the following tasks:
 `;
 
 const decideProposal = async (daoId, title, description, choices) => {
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
-    systemInstruction: SYSTEM_PROMPT,
-  });
+  try {
+    const knBase = fs.readFileSync(
+      `${process.env.PROJECT_ROOT}/knBase/${daoId}/knowledge_sum.txt`,
+      "utf-8"
+    );
 
-  const generationConfig = {
-    temperature: 1,
-    topP: 0.95,
-    topK: 40,
-    maxOutputTokens: 8192,
-    responseMimeType: "text/plain",
-  };
+    const opValues = fs.readFileSync(
+      `${process.env.PROJECT_ROOT}/knBase/${daoId}/op_values.txt`,
+      "utf-8"
+    );
 
-  const knBase = fs.readFileSync(
-    `${process.env.PROJECT_ROOT}/knBase/${daoId}/knowledge_sum.txt`,
-    "utf-8"
-  );
-
-  const opValues = fs.readFileSync(
-    `${process.env.PROJECT_ROOT}/knBase/${daoId}/op_values.txt`,
-    "utf-8"
-  );
-
-  const chatSession = model.startChat({
-    generationConfig,
-    history: [
-      {
-        role: "user",
-        parts: [
-          {
-            text: `The following data is the past ${daoId} DAO proposals: ${knBase}`,
-          },
-        ],
-      },
-      {
-        role: "user",
-        parts: [
-          {
-            text: `Here is the operating values: ${opValues}`,
-          },
-        ],
-      },
-    ],
-  });
-
-  const message = `
+    const message = `
     - Dao Id : ${daoId}
 
     - Proposal Details : 
@@ -127,21 +88,52 @@ const decideProposal = async (daoId, title, description, choices) => {
         "vote": "<index of the chosen option (starting from 1)>",
         "reason": "<Your reason for this vote>"
       }
-  `;
+    `;
 
-  const result = await chatSession.sendMessage(message);
+    const completion = await openai.chat.completions.create({
+      model: "google/gemini-2.0-flash-001", // Updated to valid OpenRouter ID
+      messages: [
+        {
+          role: "system",
+          content: SYSTEM_PROMPT,
+        },
+        {
+          role: "user",
+          content: `The following data is the past ${daoId} DAO proposals: ${knBase}`,
+        },
+        {
+          role: "user",
+          content: `Here is the operating values: ${opValues}`,
+        },
+        {
+          role: "user",
+          content: message,
+        },
+      ],
+      temperature: 1,
+      top_p: 0.95,
+      max_tokens: 8192,
+    });
 
-  const parsedResponse = parseVoteResponse(result.response.text());
+    const resultText = completion.choices[0].message.content;
+    const parsedResponse = parseVoteResponse(resultText);
 
-  return {
-    vote: parsedResponse.vote,
-    reason: parsedResponse.reason,
-  };
+    return {
+      vote: parsedResponse.vote,
+      reason: parsedResponse.reason,
+    };
+  } catch (error) {
+    console.error("Error in decideProposal:", error);
+    throw error;
+  }
 };
 
 function parseVoteResponse(response) {
   try {
-    const jsonMatch = response.match(/{[\s\S]*}/);
+    // Clean up potential markdown code blocks (OpenRouter models often add ```json ... ```)
+    const cleanResponse = response.replace(/```json\n?|```/g, "").trim();
+
+    const jsonMatch = cleanResponse.match(/{[\s\S]*}/);
 
     if (!jsonMatch) {
       throw new Error("No valid JSON found in the response");
@@ -149,12 +141,19 @@ function parseVoteResponse(response) {
 
     const parsedData = JSON.parse(jsonMatch[0]);
 
-    return {
-      vote: parsedData.vote,
+    // Handle case where keys might be slightly different or cased differently
+    const keys = Object.keys(parsedData);
+    const voteKey =
+      keys.find((k) => k.toLowerCase().includes("vote")) || keys[0];
+    const reasonKey =
+      keys.find((k) => k.toLowerCase().includes("reason")) || keys[1];
 
-      reason: parsedData[Object.keys(parsedData)[1]],
+    return {
+      vote: parsedData[voteKey],
+      reason: parsedData[reasonKey],
     };
   } catch (error) {
+    console.warn("JSON Parse Error:", error);
     return {
       vote: null,
       reason: null,
