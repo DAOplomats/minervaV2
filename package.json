@@ -31,6 +31,7 @@
     "ethers": "^5.7.2",
     "express": "^5.1.0",
     "fs": "^0.0.1-security",
+    "grammy": "^1.38.4",
     "ioredis": "^5.8.2",
     "node-cron": "^4.2.1",
     "nodemon": "^3.1.11",

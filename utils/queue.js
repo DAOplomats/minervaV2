@@ -13,6 +13,9 @@ const decisionQueue = new Queue("minervaV2:decisionQueue", {
     host: process.env.REDIS_HOST || "localhost",
     port: process.env.REDIS_PORT || 6379,
   },
+  defaultJobOptions: {
+    attempts: 1,
+  },
 });
 
 const executionQueue = new Queue("minervaV2:executionQueue", {
@@ -20,12 +23,22 @@ const executionQueue = new Queue("minervaV2:executionQueue", {
     host: process.env.REDIS_HOST || "localhost",
     port: process.env.REDIS_PORT || 6379,
   },
+  defaultJobOptions: {
+    attempts: 1,
+  },
 });
 
 const listenerQueue = new Queue("minervaV2:listenerQueue", {
   redis: {
     host: process.env.REDIS_HOST || "localhost",
     port: process.env.REDIS_PORT || 6379,
+  },
+  defaultJobOptions: {
+    attempts: 2,
+    backoff: {
+      type: "exponential",
+      delay: 1000,
+    },
   },
 });
 

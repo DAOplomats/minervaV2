@@ -8,6 +8,7 @@ import proposalRouter from "./routes/proposal.js";
 import redis from "./utils/redis.js";
 import { listenerQueue, loadPendingExecutionJobs } from "./utils/queue.js";
 import { startListener } from "./utils/listener.js";
+import tgLogger from "./utils/tg.js";
 
 dotenv.config();
 
@@ -44,6 +45,8 @@ process.on("SIGINT", () => {
   listenerQueue.empty();
 
   console.log("Successfully disconnected from Redis");
+
+  tgLogger.info("Minerva Backend is now shutting down");
   process.exit(0);
 });
 

@@ -7,6 +7,7 @@ import {
   createSafeClient,
   offChainMessages,
 } from "@safe-global/sdk-starter-kit";
+import tgLogger from "./tg.js";
 
 const checkSnapshotProposal = async (dao) => {
   try {
@@ -85,6 +86,12 @@ const checkSnapshotProposal = async (dao) => {
 
     logger.info("Indexed new proposal", newProposal);
 
+    tgLogger.info(`Indexed new Snapshot proposal: 
+      DAO: ${dao.daoId}
+      Proposal ID: ${newProposal.id}
+      Proposal Title: ${newProposal.title}
+      `);
+
     await prisma.dAOs.update({
       where: {
         id: dao.id,
@@ -140,6 +147,13 @@ const processSnapshotDecision = async (
 
     logger.info("Processed decision", decision);
 
+    tgLogger.info(`Processed Snapshot Decision: 
+      DAO: ${dao.daoId}
+      Proposal: ${proposal.title}
+      Vote: ${response.vote}
+      Reason: ${response.reason}
+      `);
+
     const delay =
       new Date(proposal.endDate).getTime() - dao.votingDelay - Date.now();
 
@@ -182,6 +196,16 @@ const processSnapshotDecision = async (
         status: "FAILED",
       },
     });
+
+    tgLogger.error(
+      `Failed to process Snapshot decision: 
+      DAO: ${dao.daoId}
+      Proposal: ${proposal.title}
+      Decision ID: ${decision.id}
+      `,
+      error
+    );
+
     logger.error(error);
   }
 };
@@ -359,6 +383,12 @@ const executeSnapshotProposal = async (dao, proposalId) => {
     });
 
     logger.info("Successfully submitted Snapshot vote.");
+
+    tgLogger.info(`Successfully submitted Snapshot vote.
+       DAO: ${dao.daoId}
+      Proposal ID: ${proposalId}
+      Proposal Title: ${proposal.title}
+      `);
   } catch (error) {
     const execution = await prisma.execution.findMany({
       where: {
@@ -377,6 +407,11 @@ const executeSnapshotProposal = async (dao, proposalId) => {
         },
       },
     });
+
+    tgLogger.error(`Snapshot Proposal Failed: 
+          DAO: ${dao.daoId}
+          Proposal ID: ${proposalId}
+          `);
     logger.error(error);
   }
 };
@@ -462,8 +497,19 @@ const indexSnapshotProposal = async (dao, proposalId) => {
     });
 
     decisionQueue.add({ decisionId: decision?.id });
+
+    tgLogger.info(`Indexed new Snapshot proposal: 
+      DAO: ${dao.daoId}
+      Proposal ID: ${proposal.onchainId}
+      Proposal Title: ${proposal.metadata.title}
+      `);
   } catch (error) {
     logger.error(error);
+
+    tgLogger.error(`Failed to index proposal: 
+          DAO: ${dao.daoId}
+          Proposal ID: ${proposalId}
+          `);
   }
 };
 

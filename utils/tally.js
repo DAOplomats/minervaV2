@@ -17,6 +17,7 @@ import {
   offChainMessages,
 } from "@safe-global/sdk-starter-kit";
 import dotenv from "dotenv";
+import tgLogger from "./tg.js";
 dotenv.config();
 
 const checkTallyProposal = async (dao) => {
@@ -107,6 +108,13 @@ const checkTallyProposal = async (dao) => {
     });
 
     decisionQueue.add({ decisionId: decision?.id });
+
+    tgLogger.info(`Indexed new Tally proposal: 
+        DAO: ${dao.daoId}
+        Title: ${lastProposal.metadata.title}
+        Summary: ${summary}
+        ID: ${lastProposal.onchainId}
+      `);
   } catch (error) {
     logger.error(error);
   }
@@ -144,6 +152,13 @@ export const processTallyDecision = async (
     });
 
     logger.info("Processed decision", decision);
+
+    tgLogger.info(`Processed Tally decision: 
+      DAO: ${dao.daoId}
+      Proposal: ${proposal.title}
+      Vote: ${response.vote}
+      Reason: ${response.reason}
+      `);
 
     const delay =
       new Date(proposal.endDate).getTime() - dao.votingDelay - Date.now();
@@ -188,6 +203,15 @@ export const processTallyDecision = async (
       },
     });
     logger.error(error);
+
+    tgLogger.error(
+      `Failed to process Tally decision: 
+      DAO: ${dao.daoId}
+      Proposal: ${proposal.title}
+      Decision ID: ${decision.id}
+      `,
+      error
+    );
   }
 };
 
@@ -557,6 +581,12 @@ export const executeTallyProposal = async (dao, proposalId) => {
         throw new Error("Useroperation execution failed");
       }
     }
+
+    tgLogger.info(`Tally proposal executed successfully: 
+      DAO: ${dao.daoId}
+      Proposal ID: ${proposalId}
+      Proposal Title: ${proposal.title}
+      `);
   } catch (error) {
     const execution = await prisma.execution.findMany({
       where: {
@@ -576,6 +606,11 @@ export const executeTallyProposal = async (dao, proposalId) => {
       },
     });
     logger.error(error);
+
+    tgLogger.error(`Tally Proposal Failed: 
+      DAO: ${dao.daoId}
+      Proposal ID: ${proposalId}
+      `);
   }
 };
 
@@ -653,8 +688,18 @@ export const indexTallyProposal = async (dao, proposalId) => {
     });
 
     decisionQueue.add({ decisionId: decision?.id });
+
+    tgLogger.info(`Indexed new Tally proposal: 
+      DAO: ${dao.daoId}
+      Proposal ID: ${proposal.onchainId}
+      Proposal Title: ${proposal.metadata.title}
+      `);
   } catch (error) {
     logger.error(error);
+    tgLogger.error(`Failed to index proposal: 
+      DAO: ${dao.daoId}
+      Proposal ID: ${proposalId}
+      `);
   }
 };
 
