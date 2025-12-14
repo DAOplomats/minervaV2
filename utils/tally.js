@@ -62,7 +62,9 @@ const checkTallyProposal = async (dao) => {
 
     const lastProposal = lastProposalResponse.data.data.proposals.nodes[0];
 
-    const startTimestamp = lastProposal.start.timestamp;
+    const startTimestamp = lastProposal.start.timestamp
+      ? lastProposal.start.timestamp
+      : new Date().toISOString();
     const endTimestamp = lastProposal.end.timestamp;
 
     const isProposalIndexed = await prisma.proposals.findUnique({
@@ -673,7 +675,9 @@ export const indexTallyProposal = async (dao, proposalId) => {
         title: proposal.metadata.title,
         summary: summary,
         choices: ["For", "Against", "Abstain"],
-        startDate: proposal.start.timestamp,
+        startDate: proposal.start.timestamp
+          ? proposal.start.timestamp
+          : new Date().toISOString(),
         endDate: proposal.end.timestamp,
       },
     });
