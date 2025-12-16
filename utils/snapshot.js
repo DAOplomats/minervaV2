@@ -90,6 +90,8 @@ const checkSnapshotProposal = async (dao) => {
       DAO: ${dao.daoId}
       Proposal ID: ${newProposal.id}
       Proposal Title: ${newProposal.title}
+      Start Date: ${new Date(newProposal.startDate).toLocaleString()}
+      End Date: ${new Date(newProposal.endDate).toLocaleString()}
       `);
 
     await prisma.dAOs.update({
@@ -152,6 +154,8 @@ const processSnapshotDecision = async (
       Proposal: ${proposal.title}
       Vote: ${response.vote}
       Reason: ${response.reason}
+      Start Date: ${new Date(proposal.startDate).toLocaleString()}
+      End Date: ${new Date(proposal.endDate).toLocaleString()}
       `);
 
     const delay =
@@ -202,6 +206,8 @@ const processSnapshotDecision = async (
       DAO: ${dao.daoId}
       Proposal: ${proposal.title}
       Decision ID: ${decision.id}
+      Start Date: ${new Date(proposal.startDate).toLocaleString()}
+      End Date: ${new Date(proposal.endDate).toLocaleString()}
       `,
       error
     );
@@ -388,6 +394,8 @@ const executeSnapshotProposal = async (dao, proposalId) => {
        DAO: ${dao.daoId}
       Proposal ID: ${proposalId}
       Proposal Title: ${proposal.title}
+      Start Date: ${new Date(proposal.startDate).toLocaleString()}
+      End Date: ${new Date(proposal.endDate).toLocaleString()}
       `);
   } catch (error) {
     const execution = await prisma.execution.findMany({
@@ -502,6 +510,8 @@ const indexSnapshotProposal = async (dao, proposalId) => {
       DAO: ${dao.daoId}
       Proposal ID: ${proposal.onchainId}
       Proposal Title: ${proposal.metadata.title}
+      Start Date: ${new Date(proposal.startDate).toLocaleString()}
+      End Date: ${new Date(proposal.endDate).toLocaleString()}
       `);
   } catch (error) {
     logger.error(error);

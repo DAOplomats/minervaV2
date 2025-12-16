@@ -86,8 +86,8 @@ const checkTallyProposal = async (dao) => {
         title: lastProposal.metadata.title,
         summary: summary,
         choices: ["For", "Against", "Abstain"],
-        startDate: startTimestamp,
-        endDate: endTimestamp,
+        startDate: new Date(startTimestamp).toLocaleString(),
+        endDate: new Date(endTimestamp).toLocaleString(),
       },
     });
 
@@ -116,6 +116,8 @@ const checkTallyProposal = async (dao) => {
         Title: ${lastProposal.metadata.title}
         Summary: ${summary}
         ID: ${lastProposal.onchainId}
+        Start Date: ${new Date(startTimestamp).toLocaleString()}
+        End Date: ${new Date(endTimestamp).toLocaleString()}
       `);
   } catch (error) {
     logger.error(error);
@@ -160,6 +162,8 @@ export const processTallyDecision = async (
       Proposal: ${proposal.title}
       Vote: ${response.vote}
       Reason: ${response.reason}
+      Start Date: ${new Date(proposal.startDate).toLocaleString()}
+      End Date: ${new Date(proposal.endDate).toLocaleString()}
       `);
 
     const delay =
@@ -588,6 +592,8 @@ export const executeTallyProposal = async (dao, proposalId) => {
       DAO: ${dao.daoId}
       Proposal ID: ${proposalId}
       Proposal Title: ${proposal.title}
+      Start Date: ${new Date(proposal.startDate).toLocaleString()}
+      End Date: ${new Date(proposal.endDate).toLocaleString()}
       `);
   } catch (error) {
     const execution = await prisma.execution.findMany({
@@ -697,6 +703,8 @@ export const indexTallyProposal = async (dao, proposalId) => {
       DAO: ${dao.daoId}
       Proposal ID: ${proposal.onchainId}
       Proposal Title: ${proposal.metadata.title}
+      Start Date: ${new Date(proposal.startDate).toLocaleString()}
+      End Date: ${new Date(proposal.endDate).toLocaleString()}
       `);
   } catch (error) {
     logger.error(error);
