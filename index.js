@@ -6,7 +6,7 @@ import chainRouter from "./routes/chain.js";
 import utilsRouter from "./routes/utils.js";
 import proposalRouter from "./routes/proposal.js";
 import redis from "./utils/redis.js";
-import { listenerQueue, loadPendingExecutionJobs } from "./utils/queue.js";
+import { loadPendingExecutionJobs } from "./utils/queue.js";
 import { startListener } from "./utils/listener.js";
 import tgLogger from "./utils/tg.js";
 
@@ -42,7 +42,6 @@ redis.on("error", (err) => {
 
 process.on("SIGINT", () => {
   redis.disconnect();
-  listenerQueue.empty();
 
   console.log("Successfully disconnected from Redis");
 

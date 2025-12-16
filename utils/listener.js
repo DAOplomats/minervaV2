@@ -1,7 +1,6 @@
 import prisma from "./prisma.js";
 import logger from "./winston.js";
 import checkTallyProposal from "./tally.js";
-import { listenerQueue } from "./queue.js";
 import { checkSnapshotProposal } from "./snapshot.js";
 
 const checkNewProposals = async () => {
@@ -28,15 +27,12 @@ const checkNewProposals = async () => {
   }
 };
 
-export const startListener = async (id = "defaultId") => {
-  await listenerQueue.add(
-    {},
-    {
-      jobId: "defaultId",
-      removeOnComplete: true,
-      removeOnFail: true,
-    }
-  );
+export const startListener = async () => {
+  await checkNewProposals();
+
+  setInterval(() => {
+    checkNewProposals();
+  }, 60 * 60 * 1000);
 };
 
 export default checkNewProposals;
