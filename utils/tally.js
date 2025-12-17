@@ -60,58 +60,69 @@ const checkTallyProposal = async (dao) => {
       { headers }
     );
 
-    const lastProposal = lastProposalResponse.data.data.proposals.nodes[0];
+    const lastProposals = lastProposalResponse.data.data.proposals.nodes;
 
-    const startTimestamp = lastProposal.start.timestamp
-      ? lastProposal.start.timestamp
-      : new Date().toISOString();
-    const endTimestamp = lastProposal.end.timestamp;
+    await Promise.all(
+      lastProposals.map(async (proposal) => {
+        const lastProposal = proposal;
 
-    const isProposalIndexed = await prisma.proposals.findUnique({
-      where: {
-        id: lastProposal.onchainId,
-      },
-    });
+        const startTimestamp = lastProposal.start.timestamp
+          ? lastProposal.start.timestamp
+          : new Date().toISOString();
+        const endTimestamp = lastProposal.end.timestamp;
 
-    if (isProposalIndexed) {
-      return;
-    }
+        const isProposalIndexed = await prisma.proposals.findUnique({
+          where: {
+            id: lastProposal.onchainId,
+          },
+        });
 
-    const summary = await summarizeProposal(lastProposal.metadata.description);
+        if (isProposalIndexed) {
+          return;
+        }
 
-    const newProposal = await prisma.proposals.create({
-      data: {
-        id: lastProposal.onchainId,
-        daoId: dao.id,
-        title: lastProposal.metadata.title,
-        summary: summary,
-        choices: ["For", "Against", "Abstain"],
-        startDate: new Date(startTimestamp).toLocaleString(),
-        endDate: new Date(endTimestamp).toLocaleString(),
-      },
-    });
+        if (Date.now() > new Date(endTimestamp).getTime()) {
+          // Skip proposals that have already ended
+          return;
+        }
 
-    logger.info("Indexed new proposal", newProposal);
+        const summary = await summarizeProposal(
+          lastProposal.metadata.description
+        );
 
-    await prisma.dAOs.update({
-      where: {
-        id: dao.id,
-      },
-      data: {
-        latestIndex: lastProposal.onchainId.toString(),
-      },
-    });
+        const newProposal = await prisma.proposals.create({
+          data: {
+            id: lastProposal.onchainId,
+            daoId: dao.id,
+            title: lastProposal.metadata.title,
+            summary: summary,
+            choices: ["For", "Against", "Abstain"],
+            startDate: startTimestamp,
+            endDate: endTimestamp,
+          },
+        });
 
-    const decision = await prisma.decision.create({
-      data: {
-        proposalId: newProposal.id,
-        status: "PENDING",
-      },
-    });
+        logger.info("Indexed new proposal", newProposal);
 
-    decisionQueue.add({ decisionId: decision?.id });
+        await prisma.dAOs.update({
+          where: {
+            id: dao.id,
+          },
+          data: {
+            latestIndex: lastProposal.onchainId.toString(),
+          },
+        });
 
-    tgLogger.info(`Indexed new Tally proposal: 
+        const decision = await prisma.decision.create({
+          data: {
+            proposalId: newProposal.id,
+            status: "PENDING",
+          },
+        });
+
+        decisionQueue.add({ decisionId: decision?.id });
+
+        tgLogger.info(`Indexed new Tally proposal: 
         DAO: ${dao.daoId}
         Title: ${lastProposal.metadata.title}
         Summary: ${summary}
@@ -119,6 +130,8 @@ const checkTallyProposal = async (dao) => {
         Start Date: ${new Date(startTimestamp).toLocaleString()}
         End Date: ${new Date(endTimestamp).toLocaleString()}
       `);
+      })
+    );
   } catch (error) {
     logger.error(error);
   }
@@ -670,7 +683,7 @@ export const indexTallyProposal = async (dao, proposalId) => {
 
     const summary = await summarizeProposal(proposal.metadata.description);
 
-    if (Date.now() > proposal.end.timestamp) {
+    if (Date.now() > new Date(proposal.end.timestamp).getTime()) {
       throw new Error("Proposal already ended");
     }
 

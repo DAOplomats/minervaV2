@@ -16,7 +16,7 @@ const checkSnapshotProposal = async (dao) => {
     const query = `
     query Proposals {
       proposals(
-        first: 1,
+        first: 5,
         skip: 0,
         where: {
           space_in: ["${dao.alternateId}"],
@@ -51,42 +51,51 @@ const checkSnapshotProposal = async (dao) => {
       }
     );
 
-    const lastProposal = response.data.data.proposals[0];
+    const lastProposals = response.data.data.proposals;
 
-    const startTimestamp = new Date(
-      Number(lastProposal.start) * 1000
-    ).toISOString();
-    const endTimestamp = new Date(
-      Number(lastProposal.end) * 1000
-    ).toISOString();
+    await Promise.all(
+      lastProposals.map(async (proposal) => {
+        const lastProposal = proposal;
 
-    const isProposalIndexed = await prisma.proposals.findUnique({
-      where: {
-        id: lastProposal.id,
-      },
-    });
+        const startTimestamp = new Date(
+          Number(lastProposal.start) * 1000
+        ).toISOString();
+        const endTimestamp = new Date(
+          Number(lastProposal.end) * 1000
+        ).toISOString();
 
-    if (isProposalIndexed) {
-      return;
-    }
+        const isProposalIndexed = await prisma.proposals.findUnique({
+          where: {
+            id: lastProposal.id,
+          },
+        });
 
-    const summary = await summarizeProposal(lastProposal.body);
+        if (isProposalIndexed) {
+          return;
+        }
 
-    const newProposal = await prisma.proposals.create({
-      data: {
-        id: lastProposal.id,
-        daoId: dao.id,
-        title: lastProposal.title,
-        summary: summary,
-        choices: lastProposal.choices,
-        startDate: startTimestamp,
-        endDate: endTimestamp,
-      },
-    });
+        if (Date.now() > endTimestamp) {
+          // Skip proposals that have already ended
+          return;
+        }
 
-    logger.info("Indexed new proposal", newProposal);
+        const summary = await summarizeProposal(lastProposal.body);
 
-    tgLogger.info(`Indexed new Snapshot proposal: 
+        const newProposal = await prisma.proposals.create({
+          data: {
+            id: lastProposal.id,
+            daoId: dao.id,
+            title: lastProposal.title,
+            summary: summary,
+            choices: lastProposal.choices,
+            startDate: startTimestamp,
+            endDate: endTimestamp,
+          },
+        });
+
+        logger.info("Indexed new proposal", newProposal);
+
+        tgLogger.info(`Indexed new Snapshot proposal: 
       DAO: ${dao.daoId}
       Proposal ID: ${newProposal.id}
       Proposal Title: ${newProposal.title}
@@ -94,23 +103,25 @@ const checkSnapshotProposal = async (dao) => {
       End Date: ${new Date(newProposal.endDate).toLocaleString()}
       `);
 
-    await prisma.dAOs.update({
-      where: {
-        id: dao.id,
-      },
-      data: {
-        latestIndex: lastProposal.id.toString(),
-      },
-    });
+        await prisma.dAOs.update({
+          where: {
+            id: dao.id,
+          },
+          data: {
+            latestIndex: lastProposal.id.toString(),
+          },
+        });
 
-    const decision = await prisma.decision.create({
-      data: {
-        proposalId: newProposal.id,
-        status: "PENDING",
-      },
-    });
+        const decision = await prisma.decision.create({
+          data: {
+            proposalId: newProposal.id,
+            status: "PENDING",
+          },
+        });
 
-    decisionQueue.add({ decisionId: decision?.id });
+        decisionQueue.add({ decisionId: decision?.id });
+      })
+    );
   } catch (error) {
     logger.error(error);
   }
